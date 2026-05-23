@@ -13,7 +13,7 @@ vllm:
   host: "0.0.0.0"
   port: 9001
   tensor_parallel_size: 1 # vLLM runs on its own single GPU
-  gpu_memory_utilization: 0.45 # Leave some headroom
+  gpu_memory_utilization: 0.9 # Leave some headroom
   enable_prefix_caching: true
   max_model_len: 3072
   device: auto
@@ -25,10 +25,10 @@ trl:
   max_completion_length: 2048
   use_liger_loss: true
   use_vllm: true
-  vllm_mode: colocate            # for single gpu training
-  vllm_enable_sleep_mode: true  # for single gpu training
+  vllm_mode: server            # for single gpu training
+  #vllm_enable_sleep_mode: true  # for single gpu training
   vllm_server_port: 9001
-  vllm_server_timeout: 60.0
+  vllm_server_timeout: 10.0
 
   # Sampling Parameters for diversity
   temperature: 1.0
@@ -44,7 +44,7 @@ accelerator_config:
   dispatch_batches: true
   split_batches: true
 
-output_dir: ./axolotl-models/
+output_dir: /axolotl-models/
 micro_batch_size: 1        # Keep small for GRPO as num_generations multiplies effective batch
 gradient_accumulation_steps: 8
 gradient_checkpointing: "offload"
@@ -54,6 +54,7 @@ flash_attention: true
 # --- Dataset & Plugins ---
 datasets:
   - type: atropos
+    path: placeholder
 
 plugins:
   - "axolotl.integrations.cut_cross_entropy.CutCrossEntropyPlugin"
