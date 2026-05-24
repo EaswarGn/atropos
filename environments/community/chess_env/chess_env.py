@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import math
 import os
@@ -281,6 +282,7 @@ class ChessEnv(BaseEnv):
 
         to_score: List[RolloutItem] = []
 
+        log_file_path = "completions_log.jsonl"
         for node, choice in zip(nodes, chat_completions.choices):
             rollout_item = RolloutItem(
                 input_item=item,
@@ -293,6 +295,28 @@ class ChessEnv(BaseEnv):
                 logprobs=node.logprobs,
             )
 
+            # Calculate token counts
+            total_tokens = len(rollout_item.tokens)
+            # Count how many tokens are actually model generation (not masked as -100)
+            generation_tokens = len([1 for mask in rollout_item.masks if mask != -100])
+
+            # Construct the log entry dictionary
+            log_entry = {
+                "puzzle_id": getattr(item, "uuid", "unknown"),
+                "fen": getattr(item, "fen", "unknown"),
+                "model_completion": rollout_item.model_completion["content"],
+                "total_tokens": total_tokens,
+                "generation_tokens": generation_tokens,
+            }
+
+            # Append to the JSON lines file
+            with open(log_file_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+
+            print("\n\n")
+            print("model completion: ", rollout_item.model_completion)
+            print("total tokens: ", len(rollout_item.tokens))
+            print("\n\n")
             to_score.append(rollout_item)
 
         scored_data = await self.score(to_score)
