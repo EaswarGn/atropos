@@ -878,11 +878,36 @@ class BaseEnv(ABC):
             if not (
                 (None not in group) and (len(group.get("tokens", [])) == group_size)
             ):
-                logger.warning(
+                """logger.warning(
                     f"Group structure invalid, or token count mismatch (expected {group_size}), "
                     f"or 'tokens' key missing. Skipping group: {str(group)[:200]}..."
                 )
-                continue
+                continue"""
+
+                # 1. Check if the 'tokens' key exists
+                if "tokens" not in group:
+                    logger.warning(
+                        f"Missing 'tokens' key. Skipping group: {str(group)[:200]}..."
+                    )
+                    continue
+
+                # 2. Check if the number of trajectories matches the expected group size
+                actual_size = len(group.get("tokens", []))
+                if actual_size != group_size:
+                    logger.warning(
+                        f"Token count mismatch! Expected group size {group_size}, but collected {actual_size}. "
+                        f"Skipping group: {str(group)[:200]}..."
+                    )
+                    continue
+
+                # 3. Check for any None values hidden inside the group structure
+                # (Using .values() safely checks the contents if 'group' is a dict)
+                group_values = group.values() if isinstance(group, dict) else group
+                if None in group_values:
+                    logger.warning(
+                        f"Invalid group structure (contains None values). Skipping group: {str(group)[:200]}..."
+                    )
+                    continue
 
             if (
                 self.config.ensure_scores_are_not_same
