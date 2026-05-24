@@ -389,6 +389,9 @@ class ChessEnv(BaseEnv):
             logprobs = item.logprobs
 
             if len([1 for mask in masks if mask != -100]) < 10:
+                logger.warning(
+                    "Trajectory dropped: Active response generation length is less than 10 tokens."
+                )
                 continue
 
             scores["tokens"].append(tokens)
@@ -398,6 +401,14 @@ class ChessEnv(BaseEnv):
 
             if len(scores["tokens"]) >= self.config.group_size:
                 break
+
+        # DEBUG CHECK: Log if we failed to collect the complete group size
+        if len(scores["tokens"]) < self.config.group_size:
+            print(
+                f"CRITICAL: Yielded an incomplete group! "
+                f"Expected {self.config.group_size}, "
+                f"but only packed {len(scores['tokens'])} valid trajectories."
+            )
 
         if not scores["scores"] or all(
             scores["scores"][0] == score for score in scores["scores"]
