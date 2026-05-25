@@ -306,6 +306,7 @@ class ChessEnv(BaseEnv):
                 "fen": getattr(item, "fen", "unknown"),
                 "model_completion": rollout_item.model_completion["content"],
                 "total_tokens": total_tokens,
+                "input_item": rollout_item.input_item.model_dump(mode="json"),
                 "generation_tokens": generation_tokens,
             }
 
