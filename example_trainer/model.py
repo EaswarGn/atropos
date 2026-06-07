@@ -367,6 +367,13 @@ def _attach_to_vllm_shared_tensors(
     # the blueprint for the house not the actual house
     model_config = AutoConfig.from_pretrained(config.model_name)
 
+    print(f"[Setup] Original config vocab_size: {model_config.vocab_size}")
+    if model_config.vocab_size == 128258:
+        print(
+            "[Setup] Patching blueprint vocab_size to 128320 to match padded SFT weights"
+        )
+        model_config.vocab_size = 128320
+
     # Create empty model on meta device (no memory allocation)
     # Try Flash Attention 2 first (matches vLLM better), fall back to SDPA
     with torch.device("meta"):
