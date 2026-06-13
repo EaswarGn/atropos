@@ -561,14 +561,12 @@ class ManagedServer:
             else:
                 completion_text = "".join([chr(t) for t in output_tokens if t > 31])
 
-            # --- ADD THIS MODIFICATION ---
-            # If a structural suffix exists and isn't already present at index 0, prepend it
             if self._preserve_generation_suffix:
+                # If a structural suffix exists and isn't already present at index 0, prepend it
                 if self.generation_suffix and not completion_text.startswith(
                     self.generation_suffix
                 ):
                     completion_text = self.generation_suffix + completion_text
-            # -----------------------------
 
             # Create and store sequence node — always uses the raw text,
             # tool parsing only affects the ChatCompletion response
@@ -722,9 +720,8 @@ class ManagedServer:
             else:
                 completion_text = "".join([chr(t) for t in output_tokens if t > 31])
 
-            # --- ADD THIS MODIFICATION ---
-            # If a structural suffix exists and isn't already present at index 0, prepend it
             if self._preserve_generation_suffix:
+                # If a structural suffix exists and isn't already present at index 0, prepend it
                 if self.generation_suffix and not completion_text.startswith(
                     self.generation_suffix
                 ):
