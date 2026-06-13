@@ -149,6 +149,54 @@ class ManagedServer:
                 return None
         return self._translator
 
+    def _get_template_generation_suffix(self, messages_or_prompt) -> str:
+        """Finds exactly what characters the chat template appends
+        after the standard structural assistant role boundary, with zero guesswork.
+        Supports both OpenAI messages array and raw string prompt.
+        """
+        if self.tokenizer is None:
+            return ""
+
+        # --- DYNAMIC INFERENCE FOR RAW STRINGS ---
+        # If a raw string is passed from completion(), build a dummy message
+        # trajectory to query the tokenizer's template rules.
+        if isinstance(messages_or_prompt, str):
+            messages = [{"role": "user", "content": "test"}]
+        else:
+            messages = messages_or_prompt
+
+        if not messages:
+            return ""
+        # ----------------------------------------
+
+        # 1. Get token IDs without the assistant turn
+        ids_without_generation = self.tokenizer.apply_chat_template(
+            messages, tokenize=True, add_generation_prompt=False
+        )
+
+        # 2. Get token IDs with the assistant turn appended
+        ids_with_generation = self.tokenizer.apply_chat_template(
+            messages, tokenize=True, add_generation_prompt=True
+        )
+
+        # 3. Isolate just the appended tokens
+        if len(ids_with_generation) <= len(ids_without_generation):
+            return ""
+
+        # Verify the prefix matches perfectly
+        if ids_with_generation[: len(ids_without_generation)] != ids_without_generation:
+            return ""
+
+        generation_tokens = ids_with_generation[len(ids_without_generation) :]
+
+        # 4. Strip the actual assistant token ID.
+        if generation_tokens:
+            suffix_tokens = generation_tokens[1:]
+            # 5. Decode just the remaining suffix tokens back into text
+            return self.tokenizer.decode(suffix_tokens)
+
+        return ""
+
     # Placeholder used to protect <think> blocks from chat templates that strip them
     _THINK_OPEN = "__MNGD_THINK__"
     _THINK_CLOSE = "__MNGD_ENDTHINK__"
@@ -481,6 +529,15 @@ class ManagedServer:
             else:
                 completion_text = "".join([chr(t) for t in output_tokens if t > 31])
 
+            # --- ADD THIS MODIFICATION ---
+            # Detect if the template appended a trailing extension (like '<think>\n')
+            generation_suffix = self._get_template_generation_suffix(messages)
+
+            # If a structural suffix exists and isn't already present at index 0, prepend it
+            if generation_suffix and not completion_text.startswith(generation_suffix):
+                completion_text = generation_suffix + completion_text
+            # -----------------------------
+
             # Create and store sequence node — always uses the raw text,
             # tool parsing only affects the ChatCompletion response
             node = self._create_sequence_node(
@@ -632,6 +689,15 @@ class ManagedServer:
                 )
             else:
                 completion_text = "".join([chr(t) for t in output_tokens if t > 31])
+
+            # --- ADD THIS MODIFICATION ---
+            # Query the template suffix by passing the incoming raw prompt string
+            generation_suffix = self._get_template_generation_suffix(prompt)
+
+            # If a structural suffix exists and isn't already present at index 0, prepend it
+            if generation_suffix and not completion_text.startswith(generation_suffix):
+                completion_text = generation_suffix + completion_text
+            # -----------------------------
 
             # Create and store sequence node
             node = self._create_sequence_node(
