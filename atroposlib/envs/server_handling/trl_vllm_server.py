@@ -159,7 +159,7 @@ class TrlVllmServer(APIServer):
 
     Args:
         config: Standard APIServerConfig.  config.base_url should point at the
-                trl vLLM server root, e.g. ``http://localhost:8000``.
+                trl vLLM server root, e.g. ``http://localhost:8000/v1``.
         reasoning_config: Optional reasoning/thinking configuration (passed to
                           the base class; trl's vLLM server does not use it
                           directly but it is respected by the base class hooks).
@@ -222,7 +222,7 @@ class TrlVllmServer(APIServer):
 
     def _url(self, path: str) -> str:
         """Build a full URL for the given endpoint path."""
-        base = (self.config.base_url or "").rstrip("/")
+        base = (self.config.base_url.replace("/v1", "") or "").rstrip("/")
         return f"{base}{path}"
 
     # ------------------------------------------------------------------
