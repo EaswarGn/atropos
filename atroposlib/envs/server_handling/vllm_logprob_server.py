@@ -1,5 +1,5 @@
 """
-VLLMOpenAIServer: APIServer implementation for vLLM using the standard
+VLLMLogProbServer: APIServer implementation for vLLM using the standard
 OpenAI-compatible /v1/completions and /v1/chat/completions endpoints
 with --logprobs-mode processed_logprobs enabled.
 
@@ -22,6 +22,7 @@ Fully compatible with ManagedServer for automatic token/logprob tracking.
 from __future__ import annotations
 
 import asyncio
+import copy
 import logging
 import warnings
 from typing import Any, Dict, List, Optional, Tuple
@@ -43,7 +44,7 @@ from atroposlib.envs.server_handling.server_baseline import (
 logger = logging.getLogger(__name__)
 
 
-class VLLMOpenAIServer(APIServer):
+class VLLMLogProbServer(APIServer):
     """
     APIServer implementation for vLLM using the OpenAI-compatible /v1/completions
     and /v1/chat/completions endpoints with --logprobs-mode processed_logprobs.
@@ -126,14 +127,16 @@ class VLLMOpenAIServer(APIServer):
         base = self.config.base_url.replace("/v1", "").rstrip("/")
         health_url = f"{base}/health"
         backoff = 1.0
+
+        session = await self._get_session()
+
         while True:
             try:
-                session = await self._get_session()
                 async with session.get(health_url) as resp:
                     if resp.status == 200:
                         self.server_healthy = True
                         logger.info(
-                            "VLLMOpenAIServer is healthy at %s", self.config.base_url
+                            "VLLMLogProbServer is healthy at %s", self.config.base_url
                         )
                         return
                     logger.warning(
@@ -162,23 +165,22 @@ class VLLMOpenAIServer(APIServer):
             kwargs.get("messages") is not None
         ), "Messages are required for chat completion!"
 
-        # Request logprobs so ManagedServer can extract tokens+logprobs
         kwargs.setdefault("logprobs", False)
 
         if self.config.n_kwarg_is_ignored:
             n = kwargs.pop("n", 1)
             completion_list = await asyncio.gather(
-                *[self.openai.chat.completions.create(**kwargs) for _ in range(n)]
+                *[
+                    self.openai.chat.completions.create(**copy.deepcopy(kwargs))
+                    for _ in range(n)
+                ]
             )
             completions = completion_list[0]
             if n > 1:
                 for c in completion_list[1:]:
                     completions.choices.extend(c.choices)
         else:
-            if "n" in kwargs:
-                n = kwargs["n"]
-            else:
-                n = 1
+            n = kwargs.get("n", 1)
             completions = await self.openai.chat.completions.create(**kwargs)
             if len(completions.choices) != n:
                 if len(completions.choices) != 1:
@@ -190,7 +192,7 @@ class VLLMOpenAIServer(APIServer):
                     self.config.n_kwarg_is_ignored = True
                     completion_list = await asyncio.gather(
                         *[
-                            self.openai.chat.completions.create(**kwargs)
+                            self.openai.chat.completions.create(**copy.deepcopy(kwargs))
                             for _ in range(1, n)
                         ]
                     )
@@ -207,25 +209,30 @@ class VLLMOpenAIServer(APIServer):
         Wrapper for completion using the OpenAI-compatible client.
         """
         assert kwargs.get("model") is not None, "Model is required for completion!"
-        assert kwargs.get("prompt") is not None, "Prompt is required for completion!"
+        assert (
+            kwargs.get("prompt") is not None or kwargs.get("input_ids") is not None
+        ), "Prompt or input_ids is required for completion!"
 
-        # Request logprobs so ManagedServer can extract tokens+logprobs
         kwargs.setdefault("logprobs", False)
+
+        if "input_ids" in kwargs:
+            kwargs["prompt"] = kwargs.pop("input_ids")
+            kwargs.pop("messages", None)
 
         if self.config.n_kwarg_is_ignored:
             n = kwargs.pop("n", 1)
             completion_list = await asyncio.gather(
-                *[self.openai.completions.create(**kwargs) for _ in range(n)]
+                *[
+                    self.openai.completions.create(**copy.deepcopy(kwargs))
+                    for _ in range(n)
+                ]
             )
             completions = completion_list[0]
             if n > 1:
                 for c in completion_list[1:]:
                     completions.choices.extend(c.choices)
         else:
-            if "n" in kwargs:
-                n = kwargs["n"]
-            else:
-                n = 1
+            n = kwargs.get("n", 1)
             completions = await self.openai.completions.create(**kwargs)
             if len(completions.choices) != n:
                 if len(completions.choices) != 1:
@@ -236,7 +243,10 @@ class VLLMOpenAIServer(APIServer):
                     warnings.warn("n kwarg is ignored by the API, setting to True")
                     self.config.n_kwarg_is_ignored = True
                     completion_list = await asyncio.gather(
-                        *[self.openai.completions.create(**kwargs) for _ in range(1, n)]
+                        *[
+                            self.openai.completions.create(**copy.deepcopy(kwargs))
+                            for _ in range(1, n)
+                        ]
                     )
                     for c in completion_list:
                         completions.choices.extend(c.choices)
@@ -272,12 +282,39 @@ class VLLMOpenAIServer(APIServer):
             kwargs.get("prompt") is not None or kwargs.get("input_ids") is not None
         ), "Prompt or input_ids is required for completion!"
 
-        # Use input_ids if provided (from ManagedServer), otherwise tokenize prompt
+        # Build kwargs for the OpenAI-compatible completions endpoint
+        comp_kwargs: Dict[str, Any] = {}
+
         if "input_ids" in kwargs:
             prompt_tokens = kwargs.pop("input_ids")
             kwargs.pop("prompt", None)
+            kwargs.pop("messages", None)  # Clean up messages if present
+
+            comp_kwargs["prompt"] = prompt_tokens
         else:
-            prompt_tokens = self.tokenizer.encode(kwargs.pop("prompt"))
+            messages = kwargs.pop("messages", None)
+            if messages is not None:
+                if self.tokenizer is not None and hasattr(
+                    self.tokenizer, "apply_chat_template"
+                ):
+                    # Keep tokenize=True to get token IDs directly
+                    prompt_tokens = self.tokenizer.apply_chat_template(
+                        messages, tokenize=True, add_generation_prompt=True
+                    )
+                    comp_kwargs["prompt"] = prompt_tokens
+                else:
+                    # Fallback string concatenation
+                    fallback_text = "\n".join(
+                        f"{m.get('role', 'user')}: {m.get('content', '')}"
+                        for m in messages
+                    )
+                    prompt_tokens = self.tokenizer.encode(fallback_text)
+                    comp_kwargs["prompt"] = fallback_text
+            else:
+                # Standard text prompt path
+                raw_prompt = kwargs.pop("prompt", "")
+                prompt_tokens = self.tokenizer.encode(raw_prompt)
+                comp_kwargs["prompt"] = raw_prompt
 
         # Normalize double BOS
         if (
@@ -285,27 +322,9 @@ class VLLMOpenAIServer(APIServer):
             and prompt_tokens[0] == self.tokenizer.bos_token_id == prompt_tokens[1]
         ):
             prompt_tokens = prompt_tokens[1:]
-
-        # Build kwargs for the OpenAI-compatible completions endpoint
-        comp_kwargs: Dict[str, Any] = {}
-
-        # If the caller passed messages (chat mode), convert to prompt text
-        messages = kwargs.pop("messages", None)
-        if messages is not None:
-            # Convert messages to prompt using chat template
-            if self.tokenizer is not None and hasattr(
-                self.tokenizer, "apply_chat_template"
-            ):
-                comp_kwargs["prompt"] = self.tokenizer.apply_chat_template(
-                    messages, tokenize=False, add_generation_prompt=True
-                )
-            else:
-                # Fallback concatenation
-                comp_kwargs["prompt"] = "\n".join(
-                    f"{m.get('role', 'user')}: {m.get('content', '')}" for m in messages
-                )
-        else:
-            comp_kwargs["prompt"] = kwargs.pop("prompt", "")
+            # If the payload is already token IDs, update it to match the sliced tokens
+            if isinstance(comp_kwargs["prompt"], list):
+                comp_kwargs["prompt"] = prompt_tokens
 
         # Sampling parameters
         comp_kwargs["model"] = kwargs.pop("model", self.config.model_name)
@@ -423,14 +442,9 @@ class VLLMOpenAIServer(APIServer):
         ):
             prompt_tokens = prompt_tokens[1:]
 
-        # Build the completion request
-        # We use echo=True to get prompt_logprobs, min_tokens=0, max_tokens=0
-        # so no actual completion is generated — we just want the prompt logprobs.
-        prompt_text = self.tokenizer.decode(prompt_tokens)
-
         comp_kwargs: Dict[str, Any] = {
             "model": kwargs.pop("model", self.config.model_name),
-            "prompt": prompt_text,
+            "prompt": prompt_tokens,
             "echo": True,
             "max_tokens": 0,  # No completion tokens
             "temperature": 0.0,

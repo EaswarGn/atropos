@@ -23,7 +23,7 @@ from atroposlib.envs.server_handling.server_baseline import (
 from atroposlib.envs.server_handling.server_harness import ServerHarness
 from atroposlib.envs.server_handling.sglang_server import SGLangServer
 from atroposlib.envs.server_handling.trl_vllm_server import TrlVllmServer
-from atroposlib.envs.server_handling.vllm_openai_server import VLLMOpenAIServer
+from atroposlib.envs.server_handling.vllm_logprob_server import VLLMLogProbServer
 from atroposlib.envs.server_handling.vllm_server import VLLMServer
 
 
@@ -87,7 +87,7 @@ class ServerManager:
                 elif configs.server_type == "vllm":
                     server_class = VLLMServer
                 elif configs.server_type == "vllm_openai":
-                    server_class = VLLMOpenAIServer
+                    server_class = VLLMLogProbServer
                 else:
                     raise ValueError(f"Invalid server type: {configs.server_type}")
             else:
@@ -100,7 +100,7 @@ class ServerManager:
                 elif configs[0].server_type == "vllm":
                     server_class = VLLMServer
                 elif configs[0].server_type == "vllm_openai":
-                    server_class = VLLMOpenAIServer
+                    server_class = VLLMLogProbServer
                 else:
                     raise ValueError(f"Invalid server type: {configs[0].server_type}")
         if testing:
@@ -502,9 +502,9 @@ class ServerManager:
         selected_server = self.servers[most_available_server]
 
         # Handle OpenAI servers separately - they don't support token IDs/logprobs.
-        # VLLMOpenAIServer DOES support them (via processed_logprobs), so exclude it here.
+        # VLLMLogProbServer DOES support them (via processed_logprobs), so exclude it here.
         if isinstance(selected_server, OpenAIServer) and not isinstance(
-            selected_server, VLLMOpenAIServer
+            selected_server, VLLMLogProbServer
         ):
             allow_dummy = os.environ.get(
                 "ATROPOS_ALLOW_DUMMY_MANAGED_SERVER", ""

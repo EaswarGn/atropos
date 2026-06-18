@@ -247,7 +247,7 @@ class ServerBaseline(BaseModel):
     rolling_buffer_length: int = Field(
         default=1000, description="Length of the rolling buffer to store metrics."
     )
-    server_type: Literal["openai", "trl", "sglang", "vllm", "vllm_openai"] = Field(
+    server_type: Literal["openai", "trl", "sglang", "vllm", "vllm_logprob"] = Field(
         default="openai", description="Type of server to use"
     )
     tokenizer_name: str = Field(
