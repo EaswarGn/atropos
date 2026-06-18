@@ -86,7 +86,7 @@ class ServerManager:
                     server_class = SGLangServer
                 elif configs.server_type == "vllm":
                     server_class = VLLMServer
-                elif configs.server_type == "vllm_openai":
+                elif configs.server_type == "vllm_logprob":
                     server_class = VLLMLogProbServer
                 else:
                     raise ValueError(f"Invalid server type: {configs.server_type}")
@@ -99,7 +99,7 @@ class ServerManager:
                     server_class = SGLangServer
                 elif configs[0].server_type == "vllm":
                     server_class = VLLMServer
-                elif configs[0].server_type == "vllm_openai":
+                elif configs[0].server_type == "vllm_logprob":
                     server_class = VLLMLogProbServer
                 else:
                     raise ValueError(f"Invalid server type: {configs[0].server_type}")
