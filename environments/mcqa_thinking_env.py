@@ -172,7 +172,7 @@ class MCQAThinkingEnv(BaseEnv):
             completions = await managed.completion(
                 prompt=prompt,
                 n=self.config.group_size,
-                max_tokens=self.config.max_token_length,
+                max_tokens=1024 * 15,
                 temperature=1.0,  # Using temperature to get diverse responses
             )
 
