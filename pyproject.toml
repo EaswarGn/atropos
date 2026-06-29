@@ -26,7 +26,6 @@ dependencies = [
     "jsonlines",
     "pydantic-cli",
     "hf_transfer",
-    "pydantic-settings>=2.14.0",
 ]
 
 [project.scripts]
