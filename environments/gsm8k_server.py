@@ -68,12 +68,14 @@ class GSM8kEnv(BaseEnv):
             max_token_length=2048,
             wandb_name="gsm8k",
         )
-        server_config = APIServerConfig(
-            model_name="NousResearch/DeepHermes-3-Llama-3-3B-Preview",
-            base_url="http://localhost:9001/v1",
-            api_key="x",
-            num_requests_for_eval=256,
-        )
+        server_config = [
+            APIServerConfig(
+                model_name="NousResearch/DeepHermes-3-Llama-3-3B-Preview",
+                base_url="http://localhost:9001/v1",
+                api_key="x",
+                num_requests_for_eval=256,
+            )
+        ]
 
         return env_config, server_config
 
@@ -98,8 +100,10 @@ class GSM8kEnv(BaseEnv):
         await super().wandb_log(wandb_metrics)
 
     async def setup(self):
-        self.train = load_dataset("gsm8k", "main", split="train").shuffle(seed=42)
-        test_data = load_dataset("gsm8k", "main", split="test").shuffle(seed=42)
+        self.train = load_dataset("openai/gsm8k", "main", split="train").shuffle(
+            seed=42
+        )
+        test_data = load_dataset("openai/gsm8k", "main", split="test").shuffle(seed=42)
         self.test = list()
         for item in test_data:
             self.test.append(
@@ -151,7 +155,6 @@ class GSM8kEnv(BaseEnv):
                         nits=False,
                         malformed_operators=False,
                         basic_latex=True,
-                        equations=True,
                         boxed="all",
                         units=True,
                     ),
@@ -290,7 +293,6 @@ class GSM8kEnv(BaseEnv):
                                 nits=False,
                                 malformed_operators=False,
                                 basic_latex=True,
-                                equations=True,
                                 boxed="all",
                                 units=True,
                             ),
