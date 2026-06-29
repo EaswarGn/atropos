@@ -168,12 +168,6 @@ def compute_grpo_loss(
         log_ratio = logp_per_token - ref_logprobs
         ratio = torch.exp(log_ratio)
 
-        print(
-            f"[DEBUG] temperatures min={t.min():.3f} max={t.max():.3f} mean={t.mean():.3f}"
-        )
-        print(f"[DEBUG] ref_logprobs mean={ref_logprobs[mask.bool()].mean():.3f}")
-        print(f"[DEBUG] logp_per_token mean={logp_per_token[mask.bool()].mean():.3f}")
-
         # PPO-style clipping
         clipped_ratio = torch.clamp(ratio, 1.0 - clip_eps, 1.0 + clip_eps)
 
@@ -341,11 +335,6 @@ def run_training_step(
             inference_logprob_batches
         ):
             inf_logprobs = inference_logprob_batches[batch_idx]
-
-        """for i, adv_batch in enumerate(advantages):
-            mean = adv_batch.mean()
-            std = adv_batch.std().clamp_min(1e-8)
-            advantage_batches[i] = (adv_batch - mean) / std"""
 
         loss, metrics = compute_grpo_loss(
             model,

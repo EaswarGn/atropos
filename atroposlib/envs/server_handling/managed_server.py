@@ -46,75 +46,6 @@ class SequenceNode(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
 
 
-def get_template_generation_suffix(tokenizer) -> str:
-    """Finds exactly what characters the chat template appends
-    after the standard structural assistant role boundary, with zero guesswork.
-
-    Why This Matters:
-     - Server Behavior: Inference servers (vLLM, TGI) absorb `<think>\\n` into the input
-       prompt context (prefill) and omit it from the output stream. This function lets you
-       know it was injected so you can prepend it manually if your markdown parser requires it.
-
-    Example:
-        Many modern reasoning models append a starting thoughts tag directly to
-        the assistant role block. For instance, the tokenizer configuration for
-        `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` contains this logic:
-
-        `{% if add_generation_prompt %}{{'<｜Assistant｜><think>\\n'}}{% endif %}`
-
-        In this scenario:
-        - The structural role boundary token (`generation_tokens[0]`) decodes to:
-          "<｜Assistant｜>"
-        - The remaining trailing suffix tokens (`generation_tokens[1:]`) decode to:
-          "<think>\\n"
-
-        By isolating this suffix ("<think>\\n"), your generation loop can safely
-        anticipate or pre-populate the exact entry point of the model's reasoning phase.
-
-        >>> from transformers import AutoTokenizer
-        >>> tokenizer = AutoTokenizer.from_pretrained("deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B")
-        >>> get_template_generation_suffix(tokenizer)
-        '<think>\\n'
-    """
-
-    if tokenizer is None:
-        return ""
-
-    # --- DYNAMIC INFERENCE FOR RAW STRINGS ---
-    # If a raw string is passed from completion(), build a dummy message
-    # trajectory to query the tokenizer's template rules.
-    messages = [{"role": "user", "content": "test"}]
-    # ----------------------------------------
-
-    # 1. Get token IDs without the assistant turn
-    ids_without_generation = tokenizer.apply_chat_template(
-        messages, tokenize=True, add_generation_prompt=False
-    )["input_ids"]
-
-    # 2. Get token IDs with the assistant turn appended
-    ids_with_generation = tokenizer.apply_chat_template(
-        messages, tokenize=True, add_generation_prompt=True
-    )["input_ids"]
-
-    # 3. Isolate just the appended tokens
-    if len(ids_with_generation) <= len(ids_without_generation):
-        return ""
-
-    # Verify the prefix matches perfectly
-    if ids_with_generation[: len(ids_without_generation)] != ids_without_generation:
-        return ""
-
-    generation_tokens = ids_with_generation[len(ids_without_generation) :]
-
-    # 4. Strip the actual assistant token ID.
-    if generation_tokens:
-        suffix_tokens = generation_tokens[1:]
-        # 5. Decode just the remaining suffix tokens back into text
-        return tokenizer.decode(suffix_tokens)
-
-    return ""
-
-
 class ManagedServer:
     """
     Wrapper around APIServer that tracks sequences with aligned tokens and logprobs.
@@ -133,7 +64,6 @@ class ManagedServer:
         track_tree: bool = False,
         tool_parser: Optional[str] = None,
         preserve_think_blocks: bool = False,
-        preserve_generation_suffix: bool = True,
     ):
         """
         Initialize the managed server.
@@ -154,12 +84,6 @@ class ManagedServer:
                         which are sometimes stripped by chat templates. Defaults to False.
                         Usually not needed, since the chat template should be configured
                         to preserve thinking blocks until a user message arrives.
-            preserve_generation_suffix: If True, ensures that structural tokens prepended
-                        by the chat template (such as the opening `<think>` tag in reasoning
-                        models) are preserved in the final completion text. This is
-                        necessary because engines like vLLM automatically bake these
-                        suffix tokens into the prompt side of the template and do not
-                        include them in the generated output text. Defaults to True.
         """
         self.server = server
         self.tokenizer = tokenizer
@@ -167,7 +91,6 @@ class ManagedServer:
         self._tool_parser_name = tool_parser
         self._translator = None  # Lazy init
         self._preserve_think_blocks = preserve_think_blocks
-        self._preserve_generation_suffix = preserve_generation_suffix
 
         # Initialize storage based on mode
         if track_tree:
@@ -178,9 +101,6 @@ class ManagedServer:
         # Try to get tokenizer from server if not provided
         if self.tokenizer is None:
             self._initialize_tokenizer()
-
-        if preserve_generation_suffix:
-            self.generation_suffix = get_template_generation_suffix(self.tokenizer)
 
     def _initialize_tokenizer(self):
         """Initialize tokenizer from server or model name."""
@@ -561,13 +481,6 @@ class ManagedServer:
             else:
                 completion_text = "".join([chr(t) for t in output_tokens if t > 31])
 
-            if self._preserve_generation_suffix:
-                # If a structural suffix exists and isn't already present at index 0, prepend it
-                if self.generation_suffix and not completion_text.startswith(
-                    self.generation_suffix
-                ):
-                    completion_text = self.generation_suffix + completion_text
-
             # Create and store sequence node — always uses the raw text,
             # tool parsing only affects the ChatCompletion response
             node = self._create_sequence_node(
@@ -719,14 +632,6 @@ class ManagedServer:
                 )
             else:
                 completion_text = "".join([chr(t) for t in output_tokens if t > 31])
-
-            if self._preserve_generation_suffix:
-                # If a structural suffix exists and isn't already present at index 0, prepend it
-                if self.generation_suffix and not completion_text.startswith(
-                    self.generation_suffix
-                ):
-                    completion_text = self.generation_suffix + completion_text
-            # -----------------------------
 
             # Create and store sequence node
             node = self._create_sequence_node(
