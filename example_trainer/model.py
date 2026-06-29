@@ -497,7 +497,6 @@ def _reconstruct_shared_tensors(
                 ref_counter_offset,
                 event_handle,
                 event_sync_required,
-                # False,  # TODO: event_sync_required
             )
 
             storage = torch.UntypedStorage._new_shared_cuda(*share_tuple)
