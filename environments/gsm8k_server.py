@@ -1,6 +1,4 @@
-import logging
 import random
-import sys
 import time
 from typing import Dict, List, Optional, Tuple, TypedDict, Union
 
@@ -15,7 +13,6 @@ from atroposlib.envs.base import (
     BaseEnvConfig,
     ScoredDataGroup,
     ServerBaseline,
-    logger,
 )
 from atroposlib.type_definitions import Item
 
@@ -367,64 +364,5 @@ class GSM8kEnv(BaseEnv):
         return next_item
 
 
-class ColorFormatter(logging.Formatter):
-    """Custom logging formatter that adds ANSI color codes to log messages.
-
-    Colors log levels with high-intensity ANSI colors for better console readability.
-    """
-
-    # High Intensity / Bold ANSI Color Codes
-    cyan = "\x1b[36;1m"
-    white = "\x1b[37;1m"
-    yellow = "\x1b[33;1m"
-    red = "\x1b[31;1m"
-    magenta = "\x1b[35;1m"
-    reset = "\x1b[0m"
-
-    # Split the format: color the prefix, reset before the message
-    # Output: name - LEVELNAME - message
-    prefix_fmt = "%(name)s - %(levelname)s"
-    suffix_fmt = " - %(message)s"
-
-    def __init__(self):
-        """Initialize the ColorFormatter with color-coded format strings for each log level."""
-        super().__init__()
-        self.FORMATS = {
-            logging.DEBUG: self.cyan + self.prefix_fmt + self.reset + self.suffix_fmt,
-            logging.INFO: self.white + self.prefix_fmt + self.reset + self.suffix_fmt,
-            logging.WARNING: self.yellow
-            + self.prefix_fmt
-            + self.reset
-            + self.suffix_fmt,
-            logging.ERROR: self.red + self.prefix_fmt + self.reset + self.suffix_fmt,
-            logging.CRITICAL: self.magenta
-            + self.prefix_fmt
-            + self.reset
-            + self.suffix_fmt,
-        }
-
-    def format(self, record):
-        """Format the log record with appropriate color coding.
-
-        Args:
-            record (logging.LogRecord): The log record to format.
-
-        Returns:
-            str: The formatted log message with ANSI color codes.
-        """
-        log_fmt = self.FORMATS.get(record.levelno)
-        # We use a temporary formatter to handle the actual string interpolation
-        formatter = logging.Formatter(log_fmt)
-        return formatter.format(record)
-
-
 if __name__ == "__main__":
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.DEBUG)
-    formatter = logging.Formatter("%(name)s - %(levelname)s - %(message)s")
-    console_handler.setFormatter(ColorFormatter())
-    if not logger.handlers:
-        logger.addHandler(console_handler)
-    logger.propagate = False
-
     GSM8kEnv.cli()
