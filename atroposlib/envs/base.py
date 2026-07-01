@@ -1401,6 +1401,11 @@ class BaseEnv(ABC):
         # or use APIServerConfig if the list is empty or contains ServerBaseline.
         # If it's a single APIServerConfig, we use its type.
         # If it's ServerBaseline, we use APIServerConfig type for CLI args to allow overrides.
+        
+        # Ensure it is always a list to allow for config overrides
+        if not isinstance(default_server_configs_from_init, list):
+            default_server_configs_from_init = [default_server_configs_from_init]
+        
         if isinstance(default_server_configs_from_init, list):
             if default_server_configs_from_init and isinstance(
                 default_server_configs_from_init[0], APIServerConfig
@@ -1417,12 +1422,6 @@ class BaseEnv(ABC):
                     APIServerConfig  # Default to APIServerConfig for CLI definition
                 )
                 default_openai_config_instance = APIServerConfig()
-        elif isinstance(default_server_configs_from_init, APIServerConfig):
-            openai_config_cls = type(default_server_configs_from_init)
-            default_openai_config_instance = default_server_configs_from_init
-        else:  # ServerBaseline or other
-            openai_config_cls = APIServerConfig
-            default_openai_config_instance = APIServerConfig()
 
         # Define the CLI configuration class dynamically
         class CliServeConfig(BaseSettings, ServerManagerConfig):
@@ -1618,6 +1617,12 @@ class BaseEnv(ABC):
         # or use APIServerConfig if the list is empty or contains ServerBaseline.
         # If it's a single APIServerConfig, we use its type.
         # If it's ServerBaseline, we use APIServerConfig type for CLI args to allow overrides.
+        
+        
+        # Ensure it is always a list to allow for config overrides
+        if not isinstance(default_server_configs_from_init, list):
+            default_server_configs_from_init = [default_server_configs_from_init]
+        
         if isinstance(default_server_configs_from_init, list):
             if default_server_configs_from_init and isinstance(
                 default_server_configs_from_init[0], APIServerConfig
@@ -1634,12 +1639,6 @@ class BaseEnv(ABC):
                     APIServerConfig  # Default to APIServerConfig for CLI definition
                 )
                 default_openai_config_instance = APIServerConfig()
-        elif isinstance(default_server_configs_from_init, APIServerConfig):
-            openai_config_cls = type(default_server_configs_from_init)
-            default_openai_config_instance = default_server_configs_from_init
-        else:  # ServerBaseline or other
-            openai_config_cls = APIServerConfig
-            default_openai_config_instance = APIServerConfig()
 
         class CliProcessConfig(BaseSettings, ServerManagerConfig):
             """
@@ -1874,6 +1873,11 @@ class BaseEnv(ABC):
         # or use APIServerConfig if the list is empty or contains ServerBaseline.
         # If it's a single APIServerConfig, we use its type.
         # If it's ServerBaseline, we use APIServerConfig type for CLI args to allow overrides.
+        
+        # Ensure it is always a list to allow for config overrides
+        if not isinstance(default_server_configs_from_init, list):
+            default_server_configs_from_init = [default_server_configs_from_init]
+        
         if isinstance(default_server_configs_from_init, list):
             if default_server_configs_from_init and isinstance(
                 default_server_configs_from_init[0], APIServerConfig
@@ -1890,12 +1894,6 @@ class BaseEnv(ABC):
                     APIServerConfig  # Default to APIServerConfig for CLI definition
                 )
                 default_openai_config_instance = APIServerConfig()
-        elif isinstance(default_server_configs_from_init, APIServerConfig):
-            openai_config_cls = type(default_server_configs_from_init)
-            default_openai_config_instance = default_server_configs_from_init
-        else:  # ServerBaseline or other
-            openai_config_cls = APIServerConfig
-            default_openai_config_instance = APIServerConfig()
 
         class CliEvaluateConfig(BaseSettings, ServerManagerConfig):
             """
