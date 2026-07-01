@@ -878,36 +878,11 @@ class BaseEnv(ABC):
             if not (
                 (None not in group) and (len(group.get("tokens", [])) == group_size)
             ):
-                """logger.warning(
+                logger.warning(
                     f"Group structure invalid, or token count mismatch (expected {group_size}), "
                     f"or 'tokens' key missing. Skipping group: {str(group)[:200]}..."
                 )
-                continue"""
-
-                # 1. Check if the 'tokens' key exists
-                if "tokens" not in group:
-                    logger.warning(
-                        f"Missing 'tokens' key. Skipping group: {str(group)[:200]}..."
-                    )
-                    continue
-
-                # 2. Check if the number of trajectories matches the expected group size
-                actual_size = len(group.get("tokens", []))
-                if actual_size != group_size:
-                    logger.warning(
-                        f"Token count mismatch! Expected group size {group_size}, but collected {actual_size}. "
-                        f"Skipping group: {str(group)[:200]}..."
-                    )
-                    continue
-
-                # 3. Check for any None values hidden inside the group structure
-                # (Using .values() safely checks the contents if 'group' is a dict)
-                group_values = group.values() if isinstance(group, dict) else group
-                if None in group_values:
-                    logger.warning(
-                        f"Invalid group structure (contains None values). Skipping group: {str(group)[:200]}..."
-                    )
-                    continue
+                continue
 
             if (
                 self.config.ensure_scores_are_not_same
@@ -1426,6 +1401,11 @@ class BaseEnv(ABC):
         # or use APIServerConfig if the list is empty or contains ServerBaseline.
         # If it's a single APIServerConfig, we use its type.
         # If it's ServerBaseline, we use APIServerConfig type for CLI args to allow overrides.
+        
+        # Ensure it is always a list to allow for config overrides
+        if not isinstance(default_server_configs_from_init, list):
+            default_server_configs_from_init = [default_server_configs_from_init]
+        
         if isinstance(default_server_configs_from_init, list):
             if default_server_configs_from_init and isinstance(
                 default_server_configs_from_init[0], APIServerConfig
@@ -1442,12 +1422,6 @@ class BaseEnv(ABC):
                     APIServerConfig  # Default to APIServerConfig for CLI definition
                 )
                 default_openai_config_instance = APIServerConfig()
-        elif isinstance(default_server_configs_from_init, APIServerConfig):
-            openai_config_cls = type(default_server_configs_from_init)
-            default_openai_config_instance = default_server_configs_from_init
-        else:  # ServerBaseline or other
-            openai_config_cls = APIServerConfig
-            default_openai_config_instance = APIServerConfig()
 
         # Define the CLI configuration class dynamically
         class CliServeConfig(BaseSettings, ServerManagerConfig):
@@ -1643,6 +1617,12 @@ class BaseEnv(ABC):
         # or use APIServerConfig if the list is empty or contains ServerBaseline.
         # If it's a single APIServerConfig, we use its type.
         # If it's ServerBaseline, we use APIServerConfig type for CLI args to allow overrides.
+        
+        
+        # Ensure it is always a list to allow for config overrides
+        if not isinstance(default_server_configs_from_init, list):
+            default_server_configs_from_init = [default_server_configs_from_init]
+        
         if isinstance(default_server_configs_from_init, list):
             if default_server_configs_from_init and isinstance(
                 default_server_configs_from_init[0], APIServerConfig
@@ -1659,12 +1639,6 @@ class BaseEnv(ABC):
                     APIServerConfig  # Default to APIServerConfig for CLI definition
                 )
                 default_openai_config_instance = APIServerConfig()
-        elif isinstance(default_server_configs_from_init, APIServerConfig):
-            openai_config_cls = type(default_server_configs_from_init)
-            default_openai_config_instance = default_server_configs_from_init
-        else:  # ServerBaseline or other
-            openai_config_cls = APIServerConfig
-            default_openai_config_instance = APIServerConfig()
 
         class CliProcessConfig(BaseSettings, ServerManagerConfig):
             """
@@ -1899,6 +1873,11 @@ class BaseEnv(ABC):
         # or use APIServerConfig if the list is empty or contains ServerBaseline.
         # If it's a single APIServerConfig, we use its type.
         # If it's ServerBaseline, we use APIServerConfig type for CLI args to allow overrides.
+        
+        # Ensure it is always a list to allow for config overrides
+        if not isinstance(default_server_configs_from_init, list):
+            default_server_configs_from_init = [default_server_configs_from_init]
+        
         if isinstance(default_server_configs_from_init, list):
             if default_server_configs_from_init and isinstance(
                 default_server_configs_from_init[0], APIServerConfig
@@ -1915,12 +1894,6 @@ class BaseEnv(ABC):
                     APIServerConfig  # Default to APIServerConfig for CLI definition
                 )
                 default_openai_config_instance = APIServerConfig()
-        elif isinstance(default_server_configs_from_init, APIServerConfig):
-            openai_config_cls = type(default_server_configs_from_init)
-            default_openai_config_instance = default_server_configs_from_init
-        else:  # ServerBaseline or other
-            openai_config_cls = APIServerConfig
-            default_openai_config_instance = APIServerConfig()
 
         class CliEvaluateConfig(BaseSettings, ServerManagerConfig):
             """
